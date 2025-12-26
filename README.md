@@ -201,6 +201,12 @@ pnpm test -- --coverage
 4. 更完善的错误处理
 5. 响应式设计优化
 
+## Supabase backend (Part B)
+
+- 完整的 Supabase schema、RLS、存储策略、状态机触发器、KPI RPC、导出 RPC 在 `supabase/schema.sql`
+- 实施指南与前端集成要点（Auth/Session、蛇形命名状态、存储路径规则）在 `supabase/README.md`
+- 私有存储桶：`repairs-media`；状态值：`draft, submitted, accepted, assigned, reassigned, in_progress, resolved, closed, canceled`
+
 ## License
 
 MIT

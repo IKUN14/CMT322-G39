@@ -1,8 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Ticket, TicketFilter, CreateTicketRequest, UpdateTicketStatusRequest, AssignTicketRequest, BatchAssignRequest, SubmitReportRequest, ConfirmTicketRequest } from '@/types'
+import type {
+  Ticket,
+  TicketFilter,
+  CreateTicketRequest,
+  UpdateTicketStatusRequest,
+  AssignTicketRequest,
+  BatchAssignRequest,
+  SubmitReportRequest,
+  ConfirmTicketRequest
+} from '@/types'
 import { TicketStatus } from '@/types'
-import { ticketApi } from '@/services/api'
+import { repairsApi } from '@/services/supabaseApi'
+import { toDbStatus, toAppStatus } from '@/utils/statusMapper'
 
 export const useTicketStore = defineStore('tickets', () => {
   const tickets = ref<Ticket[]>([])
@@ -29,7 +39,7 @@ export const useTicketStore = defineStore('tickets', () => {
   async function fetchTickets(filter?: TicketFilter) {
     loading.value = true
     try {
-      tickets.value = await ticketApi.listTickets(filter)
+      tickets.value = await repairsApi.list(filter)
     } catch (error) {
       console.error('Failed to fetch tickets:', error)
       throw error
@@ -41,13 +51,15 @@ export const useTicketStore = defineStore('tickets', () => {
   async function fetchTicket(id: string) {
     loading.value = true
     try {
-      const ticket = await ticketApi.getTicket(id)
-      // Use new object reference to ensure reactive update
-      currentTicket.value = { ...ticket }
-      // Also update the ticket in the list
-      const index = tickets.value.findIndex(t => t.id === id)
-      if (index !== -1) {
-        tickets.value[index] = { ...ticket }
+      const ticket = await repairsApi.get(id)
+      if (ticket) {
+        currentTicket.value = { ...ticket }
+        const index = tickets.value.findIndex(t => t.id === id)
+        if (index !== -1) {
+          tickets.value[index] = { ...ticket }
+        } else {
+          tickets.value.unshift(ticket)
+        }
       }
       return currentTicket.value
     } catch (error) {
@@ -61,8 +73,10 @@ export const useTicketStore = defineStore('tickets', () => {
   async function createTicket(data: CreateTicketRequest) {
     loading.value = true
     try {
-      const ticket = await ticketApi.createTicket(data)
-      tickets.value.unshift(ticket)
+      const ticket = await repairsApi.create({ ...data, submit: true })
+      if (ticket) {
+        tickets.value.unshift(ticket)
+      }
       return ticket
     } catch (error) {
       console.error('Failed to create ticket:', error)
@@ -75,7 +89,7 @@ export const useTicketStore = defineStore('tickets', () => {
   async function updateTicketStatus(data: UpdateTicketStatusRequest) {
     loading.value = true
     try {
-      const ticket = await ticketApi.updateTicketStatus(data)
+      const ticket = await repairsApi.updateStatus(data.ticketId, data.status, data.reason)
       // Update the ticket in the list
       const index = tickets.value.findIndex(t => t.id === ticket.id)
       if (index !== -1) {
@@ -97,7 +111,7 @@ export const useTicketStore = defineStore('tickets', () => {
   async function assignTicket(data: AssignTicketRequest) {
     loading.value = true
     try {
-      const ticket = await ticketApi.assignTicket(data)
+      const ticket = await repairsApi.assign(data.ticketId, data.workerId, data.reason)
       const index = tickets.value.findIndex(t => t.id === ticket.id)
       if (index !== -1) {
         tickets.value[index] = { ...ticket }
@@ -117,7 +131,7 @@ export const useTicketStore = defineStore('tickets', () => {
   async function reassignTicket(data: AssignTicketRequest) {
     loading.value = true
     try {
-      const ticket = await ticketApi.reassignTicket(data)
+      const ticket = await repairsApi.reassign(data.ticketId, data.workerId, data.reason)
       const index = tickets.value.findIndex(t => t.id === ticket.id)
       if (index !== -1) {
         tickets.value[index] = { ...ticket }
@@ -137,8 +151,12 @@ export const useTicketStore = defineStore('tickets', () => {
   async function batchAssign(data: BatchAssignRequest) {
     loading.value = true
     try {
-      const updatedTickets = await ticketApi.batchAssign(data)
-      // Update tickets in the list
+      // Supabase API does not yet provide batch; we iterate
+      const updatedTickets: Ticket[] = []
+      for (const id of data.ticketIds) {
+        const t = await repairsApi.assign(id, data.workerId, data.reason)
+        if (t) updatedTickets.push(t)
+      }
       updatedTickets.forEach(ticket => {
         const index = tickets.value.findIndex(t => t.id === ticket.id)
         if (index !== -1) {
@@ -158,7 +176,11 @@ export const useTicketStore = defineStore('tickets', () => {
   async function batchComplete(ticketIds: string[]) {
     loading.value = true
     try {
-      const updatedTickets = await ticketApi.batchComplete(ticketIds)
+      const updatedTickets: Ticket[] = []
+      for (const id of ticketIds) {
+        const t = await repairsApi.updateStatus(id, TicketStatus.Resolved)
+        if (t) updatedTickets.push(t)
+      }
       updatedTickets.forEach(ticket => {
         const index = tickets.value.findIndex(t => t.id === ticket.id)
         if (index !== -1) {
@@ -178,7 +200,7 @@ export const useTicketStore = defineStore('tickets', () => {
   async function submitReport(data: SubmitReportRequest) {
     loading.value = true
     try {
-      const ticket = await ticketApi.submitReport(data)
+      const ticket = await repairsApi.submitReport(data.ticketId, data.report)
       const index = tickets.value.findIndex(t => t.id === ticket.id)
       if (index !== -1) {
         tickets.value[index] = ticket
@@ -198,7 +220,11 @@ export const useTicketStore = defineStore('tickets', () => {
   async function confirmTicket(data: ConfirmTicketRequest) {
     loading.value = true
     try {
-      const ticket = await ticketApi.confirmTicket(data)
+      const ticket = await repairsApi.updateStatus(
+        data.ticketId,
+        data.approved ? TicketStatus.Closed : TicketStatus.InProgress,
+        data.reason
+      )
       const index = tickets.value.findIndex(t => t.id === ticket.id)
       if (index !== -1) {
         tickets.value[index] = ticket
@@ -217,7 +243,7 @@ export const useTicketStore = defineStore('tickets', () => {
 
   async function exportCSV(filter?: TicketFilter) {
     try {
-      return await ticketApi.exportCSV(filter)
+      return await repairsApi.list(filter) // For now, return list; could call kpiApi.exportRepairs for admin
     } catch (error) {
       console.error('Failed to export CSV:', error)
       throw error

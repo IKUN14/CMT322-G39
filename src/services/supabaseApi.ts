@@ -30,6 +30,16 @@ type TimelineRow = {
   created_at: string
 }
 
+type AttachmentRow = {
+  id: string
+  repair_id: string
+  owner_id: string
+  type: 'repair' | 'report' | 'feedback'
+  bucket: string
+  path: string
+  created_at: string
+}
+
 function randomId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID()
@@ -98,13 +108,13 @@ export const repairsApi = {
 
     const { data, error } = await query
     if (error) throw error
-    return (data ?? []).map(mapRepairFromDb)
+    return Promise.all((data ?? []).map(row => this.enrich(row)))
   },
 
   async get(id: string) {
     const { data, error } = await supabase.from('repairs').select('*').eq('id', id).maybeSingle()
     if (error) throw error
-    return data ? mapRepairFromDb(data) : null
+    return data ? this.enrich(data) : null
   },
 
   async create(input: CreateTicketRequest & { submit?: boolean }) {
@@ -124,7 +134,7 @@ export const repairsApi = {
       .maybeSingle()
 
     if (error) throw error
-    return data ? mapRepairFromDb(data) : null
+    return data ? this.enrich(data) : null
   },
 
   async updateStatus(repairId: string, status: TicketStatus, reason?: string) {
@@ -135,7 +145,7 @@ export const repairsApi = {
       .select('*')
       .maybeSingle()
     if (error) throw error
-    return data ? mapRepairFromDb(data) : null
+    return data ? this.enrich(data) : null
   },
 
   async assign(repairId: string, workerId: string, reason?: string) {
@@ -150,7 +160,7 @@ export const repairsApi = {
       .select('*')
       .maybeSingle()
     if (error) throw error
-    return data ? mapRepairFromDb(data) : null
+    return data ? this.enrich(data) : null
   },
 
   async reassign(repairId: string, workerId: string, reason?: string) {
@@ -165,7 +175,7 @@ export const repairsApi = {
       .select('*')
       .maybeSingle()
     if (error) throw error
-    return data ? mapRepairFromDb(data) : null
+    return data ? this.enrich(data) : null
   },
 
   async submitReport(repairId: string, content: string) {
@@ -187,6 +197,23 @@ export const repairsApi = {
       .order('created_at', { ascending: true })
     if (error) throw error
     return (data ?? []).map(mapTimelineFromDb)
+  },
+
+  async attachments(repairId: string) {
+    const { data, error } = await supabase
+      .from('attachments')
+      .select('*')
+      .eq('repair_id', repairId)
+    if (error) throw error
+    return (data ?? []).map(mapAttachmentFromDb)
+  },
+
+  async enrich(row: RepairRow) {
+    const [timeline, attachments] = await Promise.all([
+      this.timeline(row.id),
+      this.attachments(row.id)
+    ])
+    return mapRepairFromDb(row, timeline, attachments)
   }
 }
 
@@ -226,7 +253,11 @@ export const attachmentsApi = {
   }
 }
 
-function mapRepairFromDb(row: RepairRow) {
+function mapRepairFromDb(row: RepairRow, timeline: ReturnType<typeof mapTimelineFromDb>[] = [], attachments: ReturnType<typeof mapAttachmentFromDb>[] = []) {
+  const repairImages = attachments.filter(a => a.type === 'repair').map(a => a.url)
+  const reportImages = attachments.filter(a => a.type === 'report').map(a => a.url)
+  const feedbackImages = attachments.filter(a => a.type === 'feedback').map(a => a.url)
+
   return {
     id: row.id,
     title: row.title,
@@ -236,13 +267,20 @@ function mapRepairFromDb(row: RepairRow) {
     status: toAppStatus(row.status),
     statusReason: row.status_reason ?? undefined,
     scheduledTime: row.scheduled_time ?? undefined,
+    images: repairImages,
+    reportImages,
+    feedbackImages,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     createdBy: row.created_by,
     currentAssignee: row.assigned_worker_id ?? undefined,
     resolvedAt: row.resolved_at ?? undefined,
     closedAt: row.closed_at ?? undefined,
-    canceledAt: row.canceled_at ?? undefined
+    canceledAt: row.canceled_at ?? undefined,
+    statusHistory: timeline,
+    assignmentRecords: [], // not yet implemented
+    createdByName: '',
+    currentAssigneeName: ''
   }
 }
 
@@ -252,8 +290,22 @@ function mapTimelineFromDb(row: TimelineRow) {
     repairId: row.repair_id,
     fromStatus: row.from_status ? toAppStatus(row.from_status) : null,
     toStatus: toAppStatus(row.to_status),
-    changedBy: row.changed_by,
-    reason: row.reason ?? undefined,
+  changedBy: row.changed_by,
+  reason: row.reason ?? undefined,
+  createdAt: row.created_at
+}
+
+function mapAttachmentFromDb(row: AttachmentRow) {
+  // For private bucket, use signed URL on demand. Here we return path.
+  return {
+    id: row.id,
+    repairId: row.repair_id,
+    ownerId: row.owner_id,
+    type: row.type,
+    bucket: row.bucket,
+    path: row.path,
+    url: `${row.bucket}/${row.path}`,
     createdAt: row.created_at
   }
+}
 }

@@ -3,97 +3,46 @@
     <h2>Maintenance Team</h2>
     <div class="filters">
       <input v-model="search" type="text" class="input" placeholder="Search workers..." />
-      <button @click="handleRefresh" class="btn btn-primary">Refresh</button>
-      <button @click="showAddDialog = true" class="btn btn-success">Add Worker</button>
+      <button @click="handleRefresh" class="btn btn-primary" :disabled="loading">Refresh</button>
+      <button @click="openAddDialog" class="btn btn-success" :disabled="true">Add Worker (Dashboard)</button>
     </div>
     <div class="worker-cards">
-      <div v-for="worker in workerStore.workers" :key="worker.id" class="worker-card">
+      <div v-for="worker in filteredWorkers" :key="worker.id" class="worker-card">
         <h3>{{ worker.name }}</h3>
         <p>Department: {{ worker.department }}</p>
         <p>Status: {{ getStatusLabel(worker.status) }}</p>
-      </div>
-      <div v-if="workerStore.workers.length === 0" class="empty">No workers available</div>
-    </div>
-
-    <!-- Add Worker Dialog -->
-    <div v-if="showAddDialog" class="dialog-overlay" @click.self="showAddDialog = false">
-      <div class="dialog-content" @click.stop>
-        <div class="dialog-header">
-          <h3>Add Worker</h3>
-          <button @click="showAddDialog = false" class="close-btn">&times;</button>
-        </div>
-        <div class="dialog-body">
-          <form @submit.prevent="handleCreateWorker">
-            <div class="form-group">
-              <label>Name <span style="color: red;">*</span></label>
-              <input v-model="workerForm.name" type="text" class="input" placeholder="Please enter name" required />
-            </div>
-            <div class="form-group">
-              <label>Username <span style="color: red;">*</span></label>
-              <input v-model="workerForm.username" type="text" class="input" placeholder="Please enter username" required />
-            </div>
-            <div class="form-group">
-              <label>Email <span style="color: red;">*</span></label>
-              <input v-model="workerForm.email" type="email" class="input" placeholder="Please enter email" required />
-            </div>
-            <div class="form-group">
-              <label>Password <span style="color: red;">*</span></label>
-              <input v-model="workerForm.password" type="password" class="input" placeholder="Please enter password" required />
-            </div>
-            <div class="form-group">
-              <label>Phone</label>
-              <input v-model="workerForm.phone" type="tel" class="input" placeholder="Please enter phone" />
-            </div>
-            <div class="form-group">
-              <label>Department <span style="color: red;">*</span></label>
-              <input v-model="workerForm.department" type="text" class="input" placeholder="Please enter department" required />
-            </div>
-            <div class="form-group">
-              <label>Status <span style="color: red;">*</span></label>
-              <select v-model="workerForm.status" class="select" required>
-                <option value="available">Available</option>
-                <option value="busy">Busy</option>
-                <option value="offline">Offline</option>
-              </select>
-            </div>
-            <div v-if="createError" class="error-message">{{ createError }}</div>
-            <div class="dialog-actions">
-              <button type="button" @click="showAddDialog = false" class="btn">Cancel</button>
-              <button type="submit" class="btn btn-primary" :disabled="creating">
-                {{ creating ? 'Creating...' : 'Create' }}
-              </button>
-            </div>
-          </form>
+        <div class="actions">
+          <select v-model="workerStatuses[worker.id]" class="select" :disabled="loading">
+            <option value="available">Available</option>
+            <option value="busy">Busy</option>
+            <option value="offline">Offline</option>
+          </select>
+          <button class="btn btn-primary" :disabled="loading" @click="updateStatus(worker.id)">Update</button>
         </div>
       </div>
+      <div v-if="filteredWorkers.length === 0" class="empty">No workers available</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useWorkerStore } from '@/stores/workers'
 
-// Supabase integration for workers is not implemented yet.
-// This view is a placeholder to avoid build errors.
-const workerStore = {
-  workers: [] as Array<{ id: string; name: string; department: string; status: string }>,
-  fetchWorkers: async (_keyword?: string) => {},
-  createWorker: async () => {}
-}
-
+const workerStore = useWorkerStore()
 const search = ref('')
-const showAddDialog = ref(false)
-const creating = ref(false)
-const createError = ref('')
+const loading = computed(() => workerStore.loading)
+const workerStatuses = ref<Record<string, string>>({})
 
-const workerForm = ref({
-  name: '',
-  username: '',
-  email: '',
-  password: '',
-  phone: '',
-  department: '',
-  status: 'available' as 'available' | 'busy' | 'offline'
+const filteredWorkers = computed(() => {
+  if (!search.value) return workerStore.workers
+  const keyword = search.value.toLowerCase()
+  return workerStore.workers.filter(
+    worker =>
+      worker.name.toLowerCase().includes(keyword) ||
+      worker.department.toLowerCase().includes(keyword) ||
+      worker.status.toLowerCase().includes(keyword)
+  )
 })
 
 const getStatusLabel = (status: string) => {
@@ -105,19 +54,28 @@ const getStatusLabel = (status: string) => {
   return labels[status] || status
 }
 
-const handleRefresh = () => {
-  // No-op placeholder
+const handleRefresh = async () => {
+  await workerStore.fetchWorkers(search.value)
+  workerStatuses.value = Object.fromEntries(workerStore.workers.map(w => [w.id, w.status]))
 }
 
-const handleCreateWorker = async () => {
-  creating.value = true
-  createError.value = ''
-  try {
-    alert('Worker creation not implemented yet')
-  } finally {
-    creating.value = false
-  }
+const updateStatus = async (workerId: string) => {
+  const status = workerStatuses.value[workerId]
+  if (!status) return
+  await workerStore.updateWorkerStatus(workerId, status as any)
 }
+
+const openAddDialog = () => {
+  alert('Please create worker users via Supabase Dashboard with role=worker')
+}
+
+watch(search, () => {
+  handleRefresh()
+})
+
+onMounted(() => {
+  handleRefresh()
+})
 </script>
 
 <style scoped>

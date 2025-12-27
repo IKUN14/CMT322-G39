@@ -71,12 +71,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { useWorkerStore } from '@/stores/workers'
-import { authApi } from '@/services/api'
-import { UserRole } from '@/types'
+import { ref } from 'vue'
 
-const workerStore = useWorkerStore()
+// Supabase integration for workers is not implemented yet.
+// This view is a placeholder to avoid build errors.
+const workerStore = {
+  workers: [] as Array<{ id: string; name: string; department: string; status: string }>,
+  fetchWorkers: async (_keyword?: string) => {},
+  createWorker: async () => {}
+}
+
 const search = ref('')
 const showAddDialog = ref(false)
 const creating = ref(false)
@@ -102,62 +106,18 @@ const getStatusLabel = (status: string) => {
 }
 
 const handleRefresh = () => {
-  workerStore.fetchWorkers(search.value)
+  // No-op placeholder
 }
 
 const handleCreateWorker = async () => {
   creating.value = true
   createError.value = ''
-  
   try {
-    // First create user account (Worker role), use createUser to avoid changing current login state
-    const newUser = await authApi.createUser({
-      username: workerForm.value.username,
-      email: workerForm.value.email,
-      password: workerForm.value.password,
-      name: workerForm.value.name,
-      role: UserRole.Worker
-    })
-    
-    // Then create worker profile using the newly created user ID
-    await workerStore.createWorker({
-      userId: newUser.id,
-      name: workerForm.value.name,
-      phone: workerForm.value.phone,
-      department: workerForm.value.department,
-      skills: [],
-      status: workerForm.value.status
-    })
-    
-    // Reset form
-    workerForm.value = {
-      name: '',
-      username: '',
-      email: '',
-      password: '',
-      phone: '',
-      department: '',
-      status: 'available'
-    }
-    showAddDialog.value = false
-    alert('Worker created successfully')
-    
-    // Refresh list
-    await workerStore.fetchWorkers()
-  } catch (error: any) {
-    createError.value = error.message || 'Failed to create'
+    alert('Worker creation not implemented yet')
   } finally {
     creating.value = false
   }
 }
-
-watch(search, () => {
-  workerStore.fetchWorkers(search.value)
-})
-
-onMounted(() => {
-  workerStore.fetchWorkers()
-})
 </script>
 
 <style scoped>

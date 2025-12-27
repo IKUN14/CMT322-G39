@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { TicketStatus, Urgency, type CreateTicketRequest } from '@/types'
+import { TicketStatus, Urgency, type CreateTicketRequest, type WorkerProfile, type Feedback, type CreateFeedbackRequest } from '@/types'
 import { toDbStatus, toAppStatus } from '@/utils/statusMapper'
 
 type RepairRow = {
@@ -37,6 +37,24 @@ type AttachmentRow = {
   type: 'repair' | 'report' | 'feedback'
   bucket: string
   path: string
+  created_at: string
+}
+
+type ProfileRow = {
+  id: string
+  role: string
+  name: string | null
+  phone: string | null
+  department: string | null
+  status: 'available' | 'busy' | 'offline' | null
+}
+
+type FeedbackRow = {
+  id: string
+  repair_id: string
+  student_id: string
+  rating: number | null
+  content: string | null
   created_at: string
 }
 
@@ -253,6 +271,65 @@ export const attachmentsApi = {
   }
 }
 
+export const workersApi = {
+  async list(search?: string): Promise<WorkerProfile[]> {
+    let query = supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'worker')
+
+    if (search) {
+      const keyword = `%${search.toLowerCase()}%`
+      query = query.or(`name.ilike.${keyword},department.ilike.${keyword}`)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+    return (data ?? []).map(mapWorkerFromDb)
+  },
+
+  async updateStatus(id: string, status: WorkerProfile['status']) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ status })
+      .eq('id', id)
+      .eq('role', 'worker')
+      .select('*')
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapWorkerFromDb(data) : null
+  },
+
+  // Placeholder: creating new workers requires admin/service role; implement when server-side key available.
+  async create(_data: Omit<WorkerProfile, 'id' | 'completedTickets' | 'rating' | 'userId'>) {
+    throw new Error('Create worker is not available with anon key. Please create user via Supabase Dashboard or service role.')
+  }
+}
+
+export const feedbackApi = {
+  async fetchByTicket(ticketId: string): Promise<Feedback[]> {
+    const { data, error } = await supabase.from('feedback').select('*').eq('repair_id', ticketId)
+    if (error) throw error
+    return (data ?? []).map(mapFeedbackFromDb)
+  },
+
+  async create(payload: CreateFeedbackRequest & { ticketId: string }) {
+    const userId = await requireUserId()
+    const { data, error } = await supabase
+      .from('feedback')
+      .insert({
+        repair_id: payload.ticketId,
+        student_id: userId,
+        rating: payload.rating ?? null,
+        content: payload.content ?? null
+      })
+      .select('*')
+      .maybeSingle()
+    if (error) throw error
+    return data ? mapFeedbackFromDb(data) : null
+  }
+}
+
 function mapRepairFromDb(row: RepairRow, timeline: ReturnType<typeof mapTimelineFromDb>[] = [], attachments: ReturnType<typeof mapAttachmentFromDb>[] = []) {
   const repairImages = attachments.filter(a => a.type === 'repair').map(a => a.url)
   const reportImages = attachments.filter(a => a.type === 'report').map(a => a.url)
@@ -306,6 +383,33 @@ function mapAttachmentFromDb(row: AttachmentRow) {
     path: row.path,
     url: `${row.bucket}/${row.path}`,
     createdAt: row.created_at
+  }
+}
+
+function mapWorkerFromDb(row: ProfileRow): WorkerProfile {
+  return {
+    id: row.id,
+    userId: row.id,
+    name: row.name ?? '',
+    phone: row.phone ?? '',
+    department: row.department ?? '',
+    skills: [],
+    status: (row.status ?? 'available') as WorkerProfile['status'],
+    rating: undefined,
+    completedTickets: undefined
+  }
+}
+
+function mapFeedbackFromDb(row: FeedbackRow): Feedback {
+  return {
+    id: row.id,
+    ticketId: row.repair_id,
+    userId: row.student_id,
+    userName: '',
+    content: row.content ?? '',
+    rating: row.rating ?? undefined,
+    createdAt: row.created_at,
+    images: []
   }
 }
 }

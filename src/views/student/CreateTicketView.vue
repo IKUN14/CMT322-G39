@@ -1,6 +1,11 @@
 <template>
   <div class="create-ticket">
-    <h2>Quick Repair</h2>
+    <div class="page-header">
+      <div>
+        <h2>Quick Repair</h2>
+        <p class="subtitle">Submit a new maintenance request</p>
+      </div>
+    </div>
     <div class="card">
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
@@ -40,7 +45,7 @@
           <button type="submit" class="btn btn-primary" :disabled="loading">
             {{ loading ? 'Submitting...' : 'Submit' }}
           </button>
-          <router-link to="/student/tickets" class="btn">Cancel</router-link>
+          <router-link to="/student/tickets" class="btn btn-danger cancel-link">Cancel</router-link>
         </div>
         <div v-if="error" class="error-message">{{ error }}</div>
       </form>
@@ -107,16 +112,26 @@ const handleSubmit = async () => {
   padding: 20px;
 }
 
-.create-ticket h2 {
+.page-header {
   margin-bottom: 20px;
-  color: #303133;
+}
+
+.page-header h2 {
+  margin-bottom: 6px;
+  color: #0f1b3d;
+}
+
+.subtitle {
+  color: #5f6b8a;
+  font-size: 14px;
 }
 
 .card {
-  background: white;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 14px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 12px 26px rgba(15, 27, 61, 0.1);
+  border: 1px solid rgba(39, 83, 231, 0.08);
 }
 
 .form-group {
@@ -134,13 +149,18 @@ const handleSubmit = async () => {
   display: flex;
   gap: 12px;
   margin-top: 30px;
+  flex-wrap: wrap;
+}
+
+.cancel-link {
+  text-decoration: none;
 }
 
 .error-message {
   margin-top: 12px;
   padding: 8px;
-  background-color: #fef0f0;
-  color: #f56c6c;
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
   border-radius: 4px;
   font-size: 14px;
 }

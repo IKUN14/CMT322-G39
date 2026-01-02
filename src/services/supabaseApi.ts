@@ -16,6 +16,8 @@ type RepairRow = {
   scheduled_time?: string | null
   created_by: string
   assigned_worker_id?: string | null
+  creator?: { name: string | null } | null
+  assignee?: { name: string | null } | null
   resolved_at?: string | null
   closed_at?: string | null
   canceled_at?: string | null
@@ -32,6 +34,7 @@ type TimelineRow = {
   reason?: string | null
   created_at: string
   operator?: { name: string | null } | null
+  repairs?: { title: string } | null
 }
 
 type AttachmentRow = {
@@ -122,7 +125,10 @@ export const authApi = {
 
 export const repairsApi = {
   async list(filters?: { status?: TicketStatus[]; urgency?: Urgency[] }) {
-    let query = supabase.from('repairs').select('*').order('created_at', { ascending: false })
+    let query = supabase
+      .from('repairs')
+      .select('*, creator:profiles!repairs_created_by_fkey(name), assignee:profiles!repairs_assigned_worker_id_fkey(name)')
+      .order('created_at', { ascending: false })
 
     if (filters?.status?.length) {
       const dbStatuses = filters.status.map(toDbStatus)
@@ -139,7 +145,11 @@ export const repairsApi = {
   },
 
   async get(id: string) {
-    const { data, error } = await supabase.from('repairs').select('*').eq('id', id).maybeSingle()
+    const { data, error } = await supabase
+      .from('repairs')
+      .select('*, creator:profiles!repairs_created_by_fkey(name), assignee:profiles!repairs_assigned_worker_id_fkey(name)')
+      .eq('id', id)
+      .maybeSingle()
     if (error) throw error
     return data ? this.enrich(data) : null
   },
@@ -242,12 +252,23 @@ export const repairsApi = {
     )
   },
 
+  async report(repairId: string) {
+    const { data, error } = await supabase
+      .from('repair_reports')
+      .select('content')
+      .eq('repair_id', repairId)
+      .maybeSingle()
+    if (error) throw error
+    return data?.content ?? null
+  },
+
   async enrich(row: RepairRow) {
-    const [timeline, attachments] = await Promise.all([
+    const [timeline, attachments, report] = await Promise.all([
       this.timeline(row.id),
-      this.attachments(row.id)
+      this.attachments(row.id),
+      this.report(row.id)
     ])
-    return mapRepairFromDb(row, timeline, attachments)
+    return mapRepairFromDb(row, timeline, attachments, report)
   }
 }
 
@@ -261,6 +282,27 @@ export const kpiApi = {
     const { data, error } = await supabase.rpc('get_repairs_export')
     if (error) throw error
     return data ?? []
+  }
+}
+
+export const timelineApi = {
+  async recent(limit = 8) {
+    const { data, error } = await supabase
+      .from('repair_timeline')
+      .select('*, operator:profiles(name), repairs(title)')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return (data ?? []).map(row => ({
+      id: row.id,
+      repairId: row.repair_id,
+      title: row.repairs?.title ?? 'Repair',
+      fromStatus: row.from_status ? toAppStatus(row.from_status) : null,
+      toStatus: toAppStatus(row.to_status),
+      changedByName: row.operator?.name ?? row.changed_by,
+      reason: row.reason ?? undefined,
+      changedAt: row.created_at
+    }))
   }
 }
 
@@ -328,11 +370,12 @@ export const workersApi = {
     const response = await fetch(`${functionBaseUrl}/functions/v1/create-worker`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${sessionData.session.access_token}`,
+        Authorization: `Bearer ${anonKey}`,
         apikey: anonKey,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        user_token: sessionData.session.access_token,
         email: data.email,
         password: data.password,
         name: data.name,
@@ -388,7 +431,12 @@ export const feedbackApi = {
   }
 }
 
-function mapRepairFromDb(row: RepairRow, timeline: ReturnType<typeof mapTimelineFromDb>[] = [], attachments: ReturnType<typeof mapAttachmentFromDb>[] = []) {
+function mapRepairFromDb(
+  row: RepairRow,
+  timeline: ReturnType<typeof mapTimelineFromDb>[] = [],
+  attachments: ReturnType<typeof mapAttachmentFromDb>[] = [],
+  report?: string | null
+) {
   const repairImages = attachments.filter(a => a.type === 'repair').map(a => a.url)
   const reportImages = attachments.filter(a => a.type === 'report').map(a => a.url)
   const feedbackImages = attachments.filter(a => a.type === 'feedback').map(a => a.url)
@@ -405,6 +453,7 @@ function mapRepairFromDb(row: RepairRow, timeline: ReturnType<typeof mapTimeline
     images: repairImages,
     reportImages,
     feedbackImages,
+    report: report ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     createdBy: row.created_by,
@@ -414,8 +463,8 @@ function mapRepairFromDb(row: RepairRow, timeline: ReturnType<typeof mapTimeline
     canceledAt: row.canceled_at ?? undefined,
     statusHistory: timeline,
     assignmentRecords: [], // not yet implemented
-    createdByName: '',
-    currentAssigneeName: ''
+    createdByName: row.creator?.name ?? row.created_by,
+    currentAssigneeName: row.assignee?.name ?? ''
   }
 }
 

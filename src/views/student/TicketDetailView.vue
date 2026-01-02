@@ -121,15 +121,19 @@
             <div class="form-group">
               <label>Rating</label>
               <div class="rating-input">
-                <button
-                  v-for="i in 5"
-                  :key="i"
-                  type="button"
-                  @click="feedbackForm.rating = i"
-                  :class="['rating-star', { active: feedbackForm.rating >= i }]"
-                >
-                  ⭐
-                </button>
+                <div class="rating-display">
+                  <button
+                    v-for="i in 5"
+                    :key="i"
+                    type="button"
+                    @click="feedbackForm.rating = i"
+                    :class="['rating-star', { active: feedbackForm.rating >= i }]"
+                    :aria-pressed="feedbackForm.rating >= i"
+                  >
+                    ★
+                  </button>
+                </div>
+                <span class="rating-value">{{ feedbackForm.rating }}/5</span>
               </div>
             </div>
             <div class="form-group">
@@ -282,10 +286,11 @@ onMounted(async () => {
 }
 
 .card {
-  background: white;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 14px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 24px rgba(15, 27, 61, 0.12);
+  border: 1px solid rgba(39, 83, 231, 0.08);
 }
 
 .detail-header {
@@ -297,7 +302,7 @@ onMounted(async () => {
 
 .detail-header h2 {
   margin: 0;
-  color: #303133;
+  color: #0f1b3d;
 }
 
 .status-badge {
@@ -310,7 +315,7 @@ onMounted(async () => {
 
 .detail-info p {
   margin-bottom: 12px;
-  color: #606266;
+  color: #5f6b8a;
   line-height: 1.6;
 }
 
@@ -323,7 +328,7 @@ onMounted(async () => {
 .loading {
   text-align: center;
   padding: 40px;
-  color: #909399;
+  color: #5f6b8a;
 }
 
 .feedback-header {
@@ -335,7 +340,7 @@ onMounted(async () => {
 
 .feedback-header h3 {
   margin: 0;
-  color: #303133;
+  color: #0f1b3d;
 }
 
 .btn-sm {
@@ -346,7 +351,7 @@ onMounted(async () => {
 .empty-feedback {
   text-align: center;
   padding: 20px;
-  color: #909399;
+  color: #5f6b8a;
 }
 
 .feedback-list {
@@ -357,8 +362,8 @@ onMounted(async () => {
 
 .feedback-item {
   padding: 16px;
-  background-color: #f5f7fa;
-  border-radius: 8px;
+  background-color: rgba(15, 27, 61, 0.04);
+  border-radius: 10px;
 }
 
 .feedback-meta {
@@ -371,11 +376,11 @@ onMounted(async () => {
 
 .feedback-user {
   font-weight: 600;
-  color: #303133;
+  color: #0f1b3d;
 }
 
 .feedback-time {
-  color: #909399;
+  color: #5f6b8a;
 }
 
 .feedback-rating {
@@ -384,7 +389,7 @@ onMounted(async () => {
 }
 
 .feedback-content {
-  color: #606266;
+  color: #5f6b8a;
   line-height: 1.6;
   margin-bottom: 8px;
 }
@@ -422,11 +427,11 @@ onMounted(async () => {
 
 .report-header h3 {
   margin: 0;
-  color: #303133;
+  color: #0f1b3d;
 }
 
 .report-time {
-  color: #909399;
+  color: #5f6b8a;
   font-size: 14px;
 }
 
@@ -435,17 +440,17 @@ onMounted(async () => {
 }
 
 .report-worker {
-  color: #606266;
+  color: #5f6b8a;
   font-size: 14px;
   font-weight: 500;
 }
 
 .report-content {
-  color: #606266;
+  color: #5f6b8a;
   line-height: 1.8;
   padding: 16px;
-  background-color: #f5f7fa;
-  border-radius: 8px;
+  background-color: rgba(15, 27, 61, 0.04);
+  border-radius: 10px;
   margin-bottom: 16px;
   white-space: pre-wrap;
 }
@@ -486,13 +491,13 @@ onMounted(async () => {
 }
 
 .dialog-content {
-  background: white;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 12px;
   width: 90%;
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 16px 40px rgba(15, 27, 61, 0.25);
 }
 
 .dialog-header {
@@ -505,14 +510,14 @@ onMounted(async () => {
 
 .dialog-header h3 {
   margin: 0;
-  color: #303133;
+  color: #0f1b3d;
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: #909399;
+  color: #5f6b8a;
   cursor: pointer;
   padding: 0;
   width: 30px;
@@ -525,8 +530,8 @@ onMounted(async () => {
 }
 
 .close-btn:hover {
-  background-color: #f5f7fa;
-  color: #303133;
+  background-color: rgba(15, 27, 61, 0.06);
+  color: #0f1b3d;
 }
 
 .dialog-body {
@@ -540,31 +545,48 @@ onMounted(async () => {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  color: #606266;
+  color: #5f6b8a;
   font-size: 14px;
 }
 
 .rating-input {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
 }
 
 .rating-star {
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: 28px;
   cursor: pointer;
   padding: 0;
-  color: #dcdfe6;
+  color: rgba(15, 27, 61, 0.15);
   transition: all 0.3s;
 }
 
 .rating-star.active {
-  color: #e6a23c;
+  color: #f59e0b;
+  text-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
 }
 
 .rating-star:hover {
   transform: scale(1.2);
+}
+
+.rating-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rating-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f1b3d;
+  background: rgba(15, 27, 61, 0.06);
+  border-radius: 999px;
+  padding: 4px 10px;
 }
 
 .dialog-actions {
@@ -577,8 +599,8 @@ onMounted(async () => {
 .error-message {
   margin-top: 12px;
   padding: 8px;
-  background-color: #fef0f0;
-  color: #f56c6c;
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
   border-radius: 4px;
   font-size: 14px;
 }

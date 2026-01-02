@@ -138,7 +138,7 @@ The USM Dormitory Facilities Repair and Feedback System is classified as a **Bus
 - **Architecture Pattern**: Single Page Application (SPA)
 - **Deployment Model**: Web-based (accessible via browser)
 - **Accessibility**: Multi-user, role-based access
-- **Data Model**: Client-side state management with mock API (frontend prototype)
+- **Data Model**: Client-side state management with Supabase backend (Auth/Database/Storage)
 
 ### 3.3 Application Characteristics
 
@@ -655,29 +655,29 @@ Submit Report → View History
 ┌─────────────────────────────────────────────────────────┐
 │                    Service Layer                         │
 │  ┌──────────────────────────────────────────────────┐  │
-│  │              Mock API Services                    │  │
+│  │             Supabase API Services                 │  │
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐      │  │
 │  │  │  Auth    │  │  Ticket  │  │  Worker  │      │  │
 │  │  │   API    │  │   API    │  │   API    │      │  │
 │  │  └──────────┘  └──────────┘  └──────────┘      │  │
 │  │  ┌──────────┐  ┌──────────┐                    │  │
 │  │  │Feedback  │  │   KPI    │                    │  │
-│  │  │   API    │  │   API    │                    │  │
+│  │  │   API    │  │   RPC    │                    │  │
 │  │  └──────────┘  └──────────┘                    │  │
 │  └──────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────┐
-│                   Data Layer (Mock)                      │
+│                  Data Layer (Supabase)                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │  Mock Users  │  │ Mock Tickets │  │Mock Workers  │ │
-│  │   Array      │  │    Array     │  │   Array      │ │
+│  │   Profiles   │  │   Repairs    │  │  Timeline    │ │
+│  │   (RLS)      │  │   (RLS)      │  │   (RLS)      │ │
 │  └──────────────┘  └──────────────┘  └──────────────┘ │
-│  ┌──────────────┐                                      │
-│  │Mock Feedback │                                      │
-│  │    Array     │                                      │
-│  └──────────────┘                                      │
+│  ┌──────────────┐  ┌──────────────┐                   │
+│  │  Feedback    │  │ Attachments  │                   │
+│  │   (RLS)      │  │  (Storage)   │                   │
+│  └──────────────┘  └──────────────┘                   │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -751,7 +751,7 @@ src/
 │   ├── feedback.ts
 │   └── kpi.ts
 ├── services/            # API services
-│   └── api.ts           # Mock API implementation
+│   └── supabaseApi.ts   # Supabase API implementation
 ├── router/              # Routing configuration
 │   └── index.ts
 ├── types/               # TypeScript types
@@ -775,7 +775,7 @@ Store Action (Pinia)
 API Service Call
     │
     ▼
-Mock API (In-memory data)
+Supabase (Auth / Database / Storage)
     │
     ▼
 Store State Update
@@ -922,151 +922,78 @@ The system implements a finite state machine for ticket status management:
   - `getStatusColor(status)`
   - `getStatusBgColor(status)`
 
-### 6.6 API Architecture (Mock)
+### 6.6 API Architecture (Supabase)
 
 #### 6.6.1 API Structure
 ```
-Auth API:
-- POST /auth/login
-- POST /auth/register
-- POST /auth/logout
-- GET /auth/me
-- POST /auth/forgot-password
+Auth (Supabase Auth):
+- Email/password login, register, reset password, logout
+- Session restoration and role-based routing
 
-Ticket API:
-- GET /tickets (with filters)
-- GET /tickets/:id
-- POST /tickets
-- PUT /tickets/:id/status
-- POST /tickets/:id/assign
-- POST /tickets/:id/reassign
-- POST /tickets/:id/submit-report
-- POST /tickets/:id/confirm
-- POST /tickets/batch-assign
-- GET /tickets/export
+Ticket (Supabase tables + RLS):
+- Repairs CRUD with role-scoped RLS
+- Status transitions enforced by DB trigger
+- Timeline records stored in `repair_timeline`
 
-Worker API:
-- GET /workers
-- GET /workers/:id
-- POST /workers
-- PUT /workers/:id
+Worker (Profiles + Edge Function):
+- List/update workers in `profiles`
+- Admin creates worker accounts via Edge Function
 
-Feedback API:
-- POST /feedback
-- GET /feedback/ticket/:ticketId
-- GET /feedback
+Feedback (Supabase tables + RLS):
+- Insert feedback when repair is closed
+- Attachments stored in private bucket
 
-KPI API:
-- GET /kpi
+KPI (Supabase RPC):
+- `get_repair_kpi()` for dashboard metrics
 ```
 
-#### 6.6.2 Mock Data Structure
-- In-memory arrays for each entity type
-- Simulated network delay (300ms)
-- Data resets on page refresh
+#### 6.6.2 Supabase Data Structure
+- PostgreSQL tables: `profiles`, `repairs`, `repair_timeline`, `repair_reports`, `feedback`, `attachments`
+- Row Level Security (RLS) on all tables
+- Private storage bucket `repairs-media` for images
 
 ### 6.7 Security Architecture
 
 #### 6.7.1 Authentication
-- Token-based authentication (mock JWT)
+- Supabase Auth (JWT access tokens)
 - Session management in Pinia store
 - Route guards for protected routes
 
 #### 6.7.2 Authorization
-- Role-based access control (RBAC)
-- Route-level permissions
-- Component-level permission checks
+- Row Level Security (RLS) on all tables with role-scoped policies
+- Role-based access control (RBAC) in the front-end
+- Route-level permissions and component guards
 
 #### 6.7.3 Data Validation
 - TypeScript type checking
 - Form validation in components
-- State machine validation for status transitions
+- State machine validation for status transitions (DB trigger)
+- Storage policies for file access control
 
-### 6.8 Future Backend Integration Architecture
+### 6.8 Supabase Backend Implementation
 
-#### 6.8.1 Proposed Backend Stack
-- **Runtime**: Node.js / Python / Java
-- **Framework**: Express / NestJS / Django / Spring Boot
-- **Database**: PostgreSQL / MySQL
-- **Cache**: Redis
-- **Storage**: AWS S3 / Local File System
-- **Authentication**: JWT Tokens
+- **Auth**: Supabase Auth (email/password) + user metadata
+- **Database**: Supabase Postgres with RLS and triggers
+- **Storage**: Private bucket `repairs-media` + storage policies
+- **Server-side**: Edge Function for privileged operations (e.g., create worker)
 
-#### 6.8.2 API Integration Strategy
-- Replace mock API with actual HTTP calls
-- Use Axios or Fetch API for HTTP requests
-- Implement request/response interceptors
-- Error handling and retry logic
-- Loading states and progress indicators
+#### 6.8.1 Database Schema (Supabase)
+The implemented schema is in Supabase and defined in `supabase/schema.sql`, including:
 
-#### 6.8.3 Database Schema (Proposed)
-```sql
--- Users Table
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    phone VARCHAR(20),
-    avatar VARCHAR(255),
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
+- `profiles` (role, name, department, status) linked to `auth.users`
+- `repairs` (core repair requests with status + timestamps)
+- `repair_timeline` (status transitions with `changed_by` + reason)
+- `repair_reports` (worker reports)
+- `feedback` (student feedback with rating)
+- `attachments` (storage paths for images)
 
--- Tickets Table
-CREATE TABLE tickets (
-    id SERIAL PRIMARY KEY,
-    title VARCHAR(200) NOT NULL,
-    description TEXT NOT NULL,
-    location VARCHAR(100) NOT NULL,
-    urgency VARCHAR(20) NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    scheduled_time TIMESTAMP,
-    created_by INTEGER REFERENCES users(id),
-    current_assignee INTEGER REFERENCES users(id),
-    report TEXT,
-    completed_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
+All tables have Row Level Security (RLS) policies and role-based access, and storage is managed through the private bucket `repairs-media`.
 
--- Status History Table
-CREATE TABLE ticket_status_history (
-    id SERIAL PRIMARY KEY,
-    ticket_id INTEGER REFERENCES tickets(id),
-    from_status VARCHAR(20),
-    to_status VARCHAR(20) NOT NULL,
-    changed_by INTEGER REFERENCES users(id),
-    changed_at TIMESTAMP DEFAULT NOW(),
-    reason TEXT
-);
-
--- Worker Profiles Table
-CREATE TABLE worker_profiles (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) UNIQUE,
-    name VARCHAR(100) NOT NULL,
-    phone VARCHAR(20),
-    department VARCHAR(100) NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    rating DECIMAL(3,2),
-    completed_tickets INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Feedback Table
-CREATE TABLE feedback (
-    id SERIAL PRIMARY KEY,
-    ticket_id INTEGER REFERENCES tickets(id),
-    user_id INTEGER REFERENCES users(id),
-    content TEXT NOT NULL,
-    rating INTEGER,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-```
+Additional backend security and automation details:
+- **RLS**: Role-scoped policies on all tables (`profiles`, `repairs`, `repair_timeline`, `repair_reports`, `feedback`, `attachments`)
+- **Triggers**: Status transition validation and timeline logging on `repairs`
+- **RPC**: KPI and export helpers (`get_repair_kpi`, `get_repairs_export`)
+- **Storage policies**: Private bucket access filtered by role and repair ownership
 
 ---
 
@@ -1162,4 +1089,3 @@ This project demonstrates a complete, functional web application prototype that 
 ---
 
 **End of Report**
-

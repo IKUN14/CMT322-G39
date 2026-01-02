@@ -1,3 +1,5 @@
+export const config = { verify_jwt: false }
+
 import { serve } from 'https://deno.land/std@0.221.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
@@ -21,19 +23,26 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get('Authorization') ?? ''
-  const token = authHeader.replace('Bearer ', '')
-  if (!token) {
-    return new Response(JSON.stringify({ error: 'Missing auth token' }), {
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
 
+  const body = await req.json().catch(() => ({}))
+  const userToken = String(body.user_token ?? '').trim()
+  if (!userToken) {
+    return new Response(JSON.stringify({ error: 'Missing user token' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false }
   })
 
-  const { data: userData, error: userError } = await adminClient.auth.getUser(token)
+  const { data: userData, error: userError } = await adminClient.auth.getUser(userToken)
   if (userError || !userData?.user) {
     return new Response(JSON.stringify({ error: 'Invalid auth token' }), {
       status: 401,
@@ -60,8 +69,6 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
-
-  const body = await req.json().catch(() => ({}))
   const email = String(body.email ?? '').trim()
   const password = String(body.password ?? '').trim()
   const name = String(body.name ?? '').trim()

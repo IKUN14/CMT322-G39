@@ -3,22 +3,23 @@
     <div v-if="ticketStore.loading" class="loading">Loading...</div>
     <div v-else-if="ticketStore.currentTicket" class="detail-content">
       <div class="card">
-        <h2>{{ ticketStore.currentTicket.title }}</h2>
+        <div class="detail-header">
+          <h2>{{ ticketStore.currentTicket.title }}</h2>
+          <span 
+            class="status-badge" 
+            :style="{ 
+              color: getStatusColor(ticketStore.currentTicket.status),
+              backgroundColor: getStatusBgColor(ticketStore.currentTicket.status)
+            }"
+          >
+            {{ getStatusLabel(ticketStore.currentTicket.status) }}
+          </span>
+        </div>
         <div class="detail-info">
           <p><strong>Description:</strong>{{ ticketStore.currentTicket.description }}</p>
           <p><strong>Location:</strong>{{ ticketStore.currentTicket.location }}</p>
-          <p>
-            <strong>Status:</strong>
-            <span 
-              class="status-badge" 
-              :style="{ 
-                color: getStatusColor(ticketStore.currentTicket.status),
-                backgroundColor: getStatusBgColor(ticketStore.currentTicket.status)
-              }"
-            >
-              {{ getStatusLabel(ticketStore.currentTicket.status) }}
-            </span>
-          </p>
+          <p><strong>Urgency:</strong>{{ ticketStore.currentTicket.urgency }}</p>
+          <p><strong>Created At:</strong>{{ formatTime(ticketStore.currentTicket.createdAt) }}</p>
         </div>
         <div v-if="ticketStore.currentTicket.status === TicketStatus.Assigned" class="actions">
           <button @click="handleAccept" class="btn btn-primary">Accept</button>
@@ -243,15 +244,29 @@ onMounted(async () => {
 }
 
 .card {
-  background: white;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 14px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 24px rgba(15, 27, 61, 0.12);
+  border: 1px solid rgba(39, 83, 231, 0.08);
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.detail-header h2 {
+  margin: 0;
+  color: #0f1b3d;
 }
 
 .detail-info p {
   margin-bottom: 12px;
-  color: #606266;
+  color: #5f6b8a;
+  line-height: 1.6;
 }
 
 .actions {
@@ -261,7 +276,7 @@ onMounted(async () => {
 .loading {
   text-align: center;
   padding: 40px;
-  color: #909399;
+  color: #5f6b8a;
 }
 
 /* Feedback styles */
@@ -274,13 +289,13 @@ onMounted(async () => {
 
 .feedback-header h3 {
   margin: 0;
-  color: #303133;
+  color: #0f1b3d;
 }
 
 .empty-feedback {
   text-align: center;
   padding: 20px;
-  color: #909399;
+  color: #5f6b8a;
 }
 
 .feedback-list {
@@ -291,9 +306,8 @@ onMounted(async () => {
 
 .feedback-item {
   padding: 16px;
-  background-color: #f5f7fa;
-  border-radius: 8px;
-  border-left: 3px solid #3b82f6;
+  background-color: rgba(15, 27, 61, 0.04);
+  border-radius: 10px;
 }
 
 .feedback-meta {
@@ -302,25 +316,25 @@ onMounted(async () => {
   align-items: center;
   margin-bottom: 8px;
   flex-wrap: wrap;
+  font-size: 14px;
 }
 
 .feedback-user {
   font-weight: 600;
-  color: #303133;
+  color: #0f1b3d;
 }
 
 .feedback-time {
-  color: #909399;
-  font-size: 14px;
+  color: #5f6b8a;
 }
 
 .feedback-rating {
-  color: #f59e0b;
+  color: #e6a23c;
   font-weight: 600;
 }
 
 .feedback-content {
-  color: #606266;
+  color: #5f6b8a;
   line-height: 1.6;
   margin-bottom: 12px;
 }
@@ -337,6 +351,7 @@ onMounted(async () => {
   height: 100px;
   object-fit: cover;
   border-radius: 4px;
+  border: 1px solid #e4e7ed;
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -361,13 +376,13 @@ onMounted(async () => {
 }
 
 .dialog-content {
-  background: white;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 12px;
   width: 90%;
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 16px 40px rgba(15, 27, 61, 0.25);
 }
 
 .dialog-header {
@@ -380,14 +395,14 @@ onMounted(async () => {
 
 .dialog-header h3 {
   margin: 0;
-  color: #303133;
+  color: #0f1b3d;
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: #909399;
+  color: #5f6b8a;
   cursor: pointer;
   padding: 0;
   width: 30px;
@@ -400,12 +415,23 @@ onMounted(async () => {
 }
 
 .close-btn:hover {
-  background-color: #f5f7fa;
-  color: #303133;
+  background-color: rgba(15, 27, 61, 0.06);
+  color: #0f1b3d;
 }
 
 .dialog-body {
   padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #5f6b8a;
+  font-size: 14px;
 }
 
 .dialog-actions {
@@ -425,8 +451,8 @@ onMounted(async () => {
 .error-message {
   margin-top: 12px;
   padding: 8px;
-  background-color: #fef0f0;
-  color: #f56c6c;
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
   border-radius: 4px;
   font-size: 14px;
 }
@@ -442,20 +468,20 @@ onMounted(async () => {
 
 .report-header h3 {
   margin: 0;
-  color: #303133;
+  color: #0f1b3d;
 }
 
 .report-time {
-  color: #909399;
+  color: #5f6b8a;
   font-size: 14px;
 }
 
 .report-content {
-  color: #606266;
+  color: #5f6b8a;
   line-height: 1.8;
   padding: 16px;
-  background-color: #f5f7fa;
-  border-radius: 8px;
+  background-color: rgba(15, 27, 61, 0.04);
+  border-radius: 10px;
   margin-bottom: 16px;
   white-space: pre-wrap;
 }
@@ -476,10 +502,6 @@ onMounted(async () => {
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.report-images img {
-  cursor: pointer;
-}
-
 .report-images img:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -491,6 +513,5 @@ onMounted(async () => {
   padding: 4px 12px;
   border-radius: 12px;
   display: inline-block;
-  margin-left: 8px;
 }
 </style>

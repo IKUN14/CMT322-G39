@@ -1,22 +1,50 @@
 <template>
   <div class="workers-view">
-    <h2>Maintenance Team</h2>
-    <div class="filters">
-      <input v-model="search" type="text" class="input" placeholder="Search workers..." />
-      <button @click="handleRefresh" class="btn btn-primary" :disabled="loading">Refresh</button>
-      <button @click="openAddDialog" class="btn btn-success" :disabled="loading">Add Worker</button>
+    <div class="page-header">
+      <div>
+        <h2>Maintenance Team</h2>
+        <p class="subtitle">Manage worker availability and profiles</p>
+      </div>
+      <div class="filters">
+        <input v-model="search" type="text" class="input" placeholder="Search workers..." />
+        <button @click="handleRefresh" class="btn btn-primary" :disabled="loading">Refresh</button>
+        <button @click="openAddDialog" class="btn btn-success" :disabled="loading">Add Worker</button>
+      </div>
     </div>
     <div class="worker-cards">
       <div v-for="worker in filteredWorkers" :key="worker.id" class="worker-card">
-        <h3>{{ worker.name }}</h3>
-        <p>Department: {{ worker.department }}</p>
-        <p>Status: {{ getStatusLabel(worker.status) }}</p>
+        <div class="worker-header">
+          <h3>{{ worker.name }}</h3>
+          <span class="status-pill">{{ getStatusLabel(worker.status) }}</span>
+        </div>
+        <p>Department: {{ worker.department || 'Unassigned' }}</p>
         <div class="actions">
-          <select v-model="workerStatuses[worker.id]" class="select" :disabled="loading">
-            <option value="available">Available</option>
-            <option value="busy">Busy</option>
-            <option value="offline">Offline</option>
-          </select>
+          <div class="status-segment">
+            <button
+              type="button"
+              :class="['segment-btn', { active: workerStatuses[worker.id] === 'available' }]"
+              :disabled="loading"
+              @click="workerStatuses[worker.id] = 'available'"
+            >
+              Available
+            </button>
+            <button
+              type="button"
+              :class="['segment-btn', { active: workerStatuses[worker.id] === 'busy' }]"
+              :disabled="loading"
+              @click="workerStatuses[worker.id] = 'busy'"
+            >
+              Busy
+            </button>
+            <button
+              type="button"
+              :class="['segment-btn', { active: workerStatuses[worker.id] === 'offline' }]"
+              :disabled="loading"
+              @click="workerStatuses[worker.id] = 'offline'"
+            >
+              Offline
+            </button>
+          </div>
           <button class="btn btn-primary" :disabled="loading" @click="updateStatus(worker.id)">Update</button>
         </div>
       </div>
@@ -148,19 +176,33 @@ onMounted(() => {
   padding: 20px;
 }
 
-.workers-view h2 {
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 20px;
-  color: #303133;
+}
+
+.page-header h2 {
+  margin-bottom: 6px;
+  color: #0f1b3d;
+}
+
+.subtitle {
+  color: #5f6b8a;
+  font-size: 14px;
 }
 
 .filters {
   display: flex;
   gap: 12px;
-  margin-bottom: 20px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .filters .input {
-  width: 300px;
+  width: 280px;
 }
 
 .worker-cards {
@@ -170,27 +212,101 @@ onMounted(() => {
 }
 
 .worker-card {
-  background: white;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 14px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 12px 26px rgba(15, 27, 61, 0.1);
+  border: 1px solid rgba(39, 83, 231, 0.08);
 }
 
 .worker-card h3 {
+  margin: 0;
+  color: #0f1b3d;
+}
+
+.worker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
-  color: #303133;
+}
+
+.status-pill {
+  background: rgba(39, 83, 231, 0.12);
+  color: #2753e7;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .worker-card p {
   margin-bottom: 8px;
-  color: #606266;
+  color: #5f6b8a;
   font-size: 14px;
 }
 
+.actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.actions .btn {
+  width: 100%;
+}
+
+.status-segment {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.segment-btn {
+  border: 1px solid rgba(15, 27, 61, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f1b3d;
+  border-radius: 999px;
+  padding: 8px 6px;
+  font-size: 13px;
+  white-space: nowrap;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.segment-btn.active {
+  background: #2753e7;
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 8px 16px rgba(39, 83, 231, 0.25);
+}
+
+.segment-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
 .empty {
   text-align: center;
   padding: 40px;
-  color: #909399;
+  color: #5f6b8a;
+}
+
+@media (max-width: 900px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filters {
+    width: 100%;
+  }
+
+  .filters .input {
+    width: 100%;
+  }
 }
 
 /* Dialog styles */

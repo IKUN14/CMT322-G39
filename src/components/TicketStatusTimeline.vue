@@ -48,64 +48,66 @@ const formatTime = (time?: string | null) => {
 
 <style scoped>
 .status-timeline {
-  background: white;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 14px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 24px rgba(15, 27, 61, 0.12);
+  border: 1px solid rgba(39, 83, 231, 0.08);
 }
 
 .status-timeline h3 {
   margin-bottom: 20px;
   font-size: 18px;
-  color: #303133;
+  color: #0f1b3d;
 }
 
 .timeline {
   position: relative;
-  padding-left: 30px;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .timeline::before {
   content: '';
   position: absolute;
-  left: 8px;
-  top: 0;
-  bottom: 0;
+  left: 10px;
+  top: 6px;
+  bottom: 6px;
   width: 2px;
-  background-color: #e4e7ed;
+  background-color: rgba(15, 27, 61, 0.12);
 }
 
 .timeline-item {
   position: relative;
-  padding-bottom: 20px;
-  padding-left: 20px;
-}
-
-.timeline-item:last-child {
-  padding-bottom: 0;
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  column-gap: 14px;
 }
 
 .timeline-dot {
-  position: absolute;
-  left: -22px;
-  top: 4px;
+  position: relative;
+  left: 4px;
+  top: 6px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background-color: #c0c4cc;
-  border: 2px solid white;
-  box-shadow: 0 0 0 2px #e4e7ed;
+  background-color: #cbd5f5;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 2px rgba(15, 27, 61, 0.12);
 }
 
 .timeline-item.active .timeline-dot {
   background-color: #409eff;
-  box-shadow: 0 0 0 2px #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.3);
 }
 
 .timeline-content {
-  background-color: #f5f7fa;
-  padding: 12px;
-  border-radius: 4px;
+  background-color: rgba(15, 27, 61, 0.04);
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 27, 61, 0.06);
 }
 
 .timeline-status {
@@ -122,18 +124,18 @@ const formatTime = (time?: string | null) => {
 
 .timeline-time {
   font-size: 12px;
-  color: #909399;
+  color: #5f6b8a;
 }
 
 .timeline-user {
   font-size: 12px;
-  color: #606266;
+  color: #5f6b8a;
   margin-bottom: 4px;
 }
 
 .timeline-reason {
   font-size: 12px;
-  color: #909399;
+  color: #5f6b8a;
   margin-top: 4px;
 }
 </style>

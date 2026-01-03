@@ -30,13 +30,15 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/',
+    name: 'Home',
+    component: () => import('@/views/HomeView.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/',
     component: () => import('@/layouts/MainLayout.vue'),
     meta: { requiresAuth: true },
     children: [
-      {
-        path: '',
-        redirect: '/dashboard'
-      },
       {
         path: 'dashboard',
         name: 'Dashboard',
